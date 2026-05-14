@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_fill_form",
+      "Bash(gh auth *)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(git config *)",
+      "Bash(gh repo *)",
+      "Bash(mkdir -p /tmp/eatq-deploy)",
+      "Bash(cp /mnt/c/Users/evon9/OneDrive/桌面/index.html /tmp/eatq-deploy/)",
+      "Bash(vercel *)",
+      "Bash(npm install *)",
+      "Bash(rm -rf /tmp/eatq-push)",
+      "Bash(mkdir /tmp/eatq-push)",
+      "Bash(cp /mnt/c/Users/evon9/OneDrive/桌面/index.html /tmp/eatq-push/)",
+      "Bash(npm list *)",
+      "Bash(node -e \"require\\('@supabase/supabase-js'\\)\")",
+      "Bash(node *)",
+      "Bash(rm -f .next/build-manifest.json .next/BUILD_ID)",
+      "Bash(timeout 90 npx next build)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git add *)"
+    ]
+  }
+}
