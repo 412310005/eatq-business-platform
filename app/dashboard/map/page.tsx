@@ -2,17 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { CATS, getScore, getCatCounts, type BusinessRow, type CatId } from '@/lib/constants'
 
-const CAT_ICON: Record<string, string> = {
-  restaurant: '🍱',
-  cafe: '☕',
-  night_market: '🍢',
-  bar: '🍺',
-  bakery: '🥐',
-}
+const LeafletMap = dynamic(() => import('./LeafletMap'), { ssr: false })
 
+const CAT_ICON: Record<string, string> = {
+  restaurant: '🍱', cafe: '☕', night_market: '🍢', bar: '🍺', bakery: '🥐',
+}
 function getIcon(cat: string) { return CAT_ICON[cat] ?? '🏪' }
 
 export default function MapPage() {
@@ -21,6 +19,8 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true)
   const [noise, setNoise] = useState(true)
   const [loc, setLoc] = useState(true)
+  const [userLoc, setUserLoc] = useState<[number, number] | null>(null)
+  const [locStatus, setLocStatus] = useState<'idle' | 'loading' | 'ok' | 'denied'>('idle')
   const [stats, setStats] = useState({ clients: 0, pipeline: 0 })
 
   useEffect(() => {
@@ -37,7 +37,38 @@ export default function MapPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    if (loc && locStatus === 'idle') {
+      setLocStatus('loading')
+      if (!navigator.geolocation) { setLocStatus('denied'); return }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserLoc([pos.coords.latitude, pos.coords.longitude])
+          setLocStatus('ok')
+        },
+        () => setLocStatus('denied'),
+        { timeout: 8000 }
+      )
+    }
+  }, [loc])
+
+  function toggleLoc() {
+    if (loc) {
+      setLoc(false)
+      setUserLoc(null)
+      setLocStatus('idle')
+    } else {
+      setLoc(true)
+      setLocStatus('idle')
+    }
+  }
+
   const shown = noise ? businesses.filter(b => getScore(b.reviews ?? []) >= 30) : businesses
+
+  const locLabel = locStatus === 'loading' ? '📍 定位中...'
+    : locStatus === 'ok' ? `📍 已定位`
+    : locStatus === 'denied' ? '📌 定位失敗'
+    : loc ? '📍 台南市附近' : '📌 台南市（手動）'
 
   if (loading) return <div style={{ color: '#888', fontSize: 12 }}>載入中...</div>
 
@@ -62,32 +93,24 @@ export default function MapPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {/* Map panel */}
         <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 600 }}>🗺 地圖（{loc ? '即時定位' : '手動設定'}）</div>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 600 }}>
+            🗺 地圖（{loc ? '即時定位' : '手動設定'}）
+          </div>
           <div style={{ padding: '10px 12px' }}>
-            <div style={{ background: loc ? '#E6F1FB' : '#F1EFE8', borderRadius: 6, padding: '6px 9px', fontSize: 10, color: loc ? '#0C447C' : '#5F5E5A', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-              <span>{loc ? '📍 台南市安平路附近' : '📌 台南市安平區（手動）'}</span>
-              <span onClick={() => setLoc(v => !v)} style={{ cursor: 'pointer', fontWeight: 600 }}>{loc ? '關閉' : '開啟'}</span>
+            {/* Location status bar */}
+            <div style={{ background: loc && locStatus !== 'denied' ? '#E6F1FB' : '#F1EFE8', borderRadius: 6, padding: '6px 9px', fontSize: 10, color: loc && locStatus !== 'denied' ? '#0C447C' : '#5F5E5A', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{locLabel}</span>
+              <span onClick={toggleLoc} style={{ cursor: 'pointer', fontWeight: 600 }}>{loc ? '關閉' : '開啟'}</span>
             </div>
-            <div style={{ background: '#F0EDE6', borderRadius: 7, height: 130, position: 'relative', marginBottom: 8 }}>
-              {shown.map(b => {
-                const x = Math.max(5, Math.min(88, ((b.lng - 120.1) / 0.3) * 80))
-                const y = Math.max(5, Math.min(88, 85 - ((b.lat - 22.9) / 0.2) * 80))
-                const score = getScore(b.reviews ?? [])
-                const pinColor = score >= 30 ? '#C8841A' : '#888'
-                return (
-                  <div
-                    key={b.id}
-                    onClick={() => router.push(`/dashboard/ai?id=${b.id}`)}
-                    title={b.name}
-                    style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: 18, height: 18, borderRadius: '50%', background: pinColor, border: '2px solid white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, transform: 'translate(-50%,-50%)' }}
-                  >
-                    {getIcon(b.category)}
-                  </div>
-                )
-              })}
-              <div style={{ position: 'absolute', top: 5, right: 6, background: 'rgba(255,255,255,.9)', borderRadius: 4, padding: '2px 6px', fontSize: 9, fontWeight: 600, color: '#854F0B' }}>台南市安平區</div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+
+            {/* Real Leaflet map */}
+            <LeafletMap
+              businesses={shown}
+              onPinClick={id => router.push(`/dashboard/ai?id=${id}`)}
+              userLoc={userLoc}
+            />
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               {['🟠 待開發', '🔵 欲開發', '🟢 試用中', '⚫ 冷客'].map(l => (
                 <span key={l} style={{ fontSize: 9, color: '#888' }}>{l}</span>
               ))}
@@ -103,7 +126,7 @@ export default function MapPage() {
               <input type="checkbox" checked={noise} onChange={e => setNoise(e.target.checked)} /> 過濾低相關
             </label>
           </div>
-          <div style={{ padding: '10px 12px', maxHeight: 340, overflowY: 'auto' }}>
+          <div style={{ padding: '10px 12px', maxHeight: 420, overflowY: 'auto' }}>
             {shown.length === 0 && (
               <div style={{ textAlign: 'center', padding: '20px 0', color: '#888', fontSize: 11 }}>尚無商家資料</div>
             )}
@@ -122,10 +145,14 @@ export default function MapPage() {
                   <span style={{ fontSize: 18, marginTop: 2 }}>{getIcon(b.category)}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600 }}>{b.name}</div>
-                    <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>📍{b.address} · ⭐{b.google_rating}({b.review_count ?? 0}則)</div>
+                    <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>
+                      📍{b.address} · ⭐{b.google_rating}({b.review_count ?? 0}則)
+                    </div>
                     <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 3 }}>
                       {CATS.filter(c => c.id !== 'none' && counts[c.id as CatId] > 0).map(c => (
-                        <span key={c.id} style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: c.bg, color: c.tc }}>{c.label} {counts[c.id as CatId]}則</span>
+                        <span key={c.id} style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: c.bg, color: c.tc }}>
+                          {c.label} {counts[c.id as CatId]}則
+                        </span>
                       ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -139,7 +166,9 @@ export default function MapPage() {
                 </div>
               )
             })}
-            {noise && shown.length > 0 && <div style={{ fontSize: 9, color: '#888', textAlign: 'center', padding: 2 }}>低相關商家已隱藏</div>}
+            {noise && shown.length > 0 && (
+              <div style={{ fontSize: 9, color: '#888', textAlign: 'center', padding: 2 }}>低相關商家已隱藏</div>
+            )}
           </div>
         </div>
       </div>
