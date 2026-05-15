@@ -69,9 +69,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8F5EF', fontFamily: 'sans-serif', fontSize: 13, color: '#2C2C2A' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F8F5EF', fontFamily: 'sans-serif', fontSize: 13, color: '#2C2C2A' }}>
       {/* Sidebar */}
-      <div style={{ width: 155, background: '#2C2C2A', display: 'flex', flexDirection: 'column', flexShrink: 0, minHeight: '100vh' }}>
+      <div style={{ width: 155, background: '#2C2C2A', display: 'flex', flexDirection: 'column', flexShrink: 0, height: '100vh', overflowY: 'auto' }}>
         <div style={{ padding: '14px 12px 10px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#FAC775' }}>EatQ</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.3)' }}>業務開發系統</div>
@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Topbar */}
         <div style={{ background: 'white', borderBottom: '1px solid #E8E5DE', padding: '0 14px', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, position: 'relative' }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{TITLES[base] ?? 'Dashboard'}</div>

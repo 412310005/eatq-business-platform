@@ -12,6 +12,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   background-color: var(--color-beige);
   color: #1a1a1a;
