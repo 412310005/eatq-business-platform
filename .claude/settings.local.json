@@ -27,7 +27,24 @@
       "Bash(git init *)",
       "Bash(git remote *)",
       "Bash(git branch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(echo \".playwright-mcp/\")",
+      "Bash(echo \".claude/\")",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(kill 67717 67805)",
+      "Bash(awk '{print $2, $11, $12}')",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_evaluate",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(echo \"PID=$!\")",
+      "Bash(jobs)",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_click",
+      "Bash(npx vercel *)",
+      "Bash(git commit *)"
     ]
   }
 }
