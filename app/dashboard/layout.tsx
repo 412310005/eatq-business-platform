@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { DEMO_AUTH_STORAGE_KEY } from '@/lib/demoAuth'
 import '@/lib/mapHardNav'
 import { hardNavigateToMap, mapUrlWithRemount } from '@/lib/mapHardNav'
 
@@ -41,7 +42,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (localStorage.getItem(DEMO_AUTH_STORAGE_KEY) !== '1') {
+      router.replace('/')
+      return
+    }
+    setAuthChecked(true)
+  }, [router])
 
   async function globalSearch(q: string) {
     setSearchQ(q)
@@ -79,6 +89,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return
     }
     hardNavigateToMap('sidebar')
+  }
+
+  function logout() {
+    localStorage.removeItem(DEMO_AUTH_STORAGE_KEY)
+    router.push('/')
+  }
+
+  if (!authChecked) {
+    return <div style={{ minHeight: '100vh', background: '#F8F5EF' }} />
   }
 
   return (
@@ -158,7 +177,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#FAC775', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#2C2C2A' }}>林</div>
             <div>
               <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)' }}>林業務員</div>
-              <div onClick={() => router.push('/')} style={{ fontSize: 9, color: 'rgba(255,255,255,.3)', cursor: 'pointer' }}>登出</div>
+              <div onClick={logout} style={{ fontSize: 9, color: 'rgba(255,255,255,.3)', cursor: 'pointer' }}>登出</div>
             </div>
           </div>
         </div>
