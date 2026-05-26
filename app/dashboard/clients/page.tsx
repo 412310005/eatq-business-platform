@@ -158,48 +158,51 @@ export default function ClientsPage() {
     showToast('客戶已移除')
   }
 
-  if (loading) return <div style={{ color: '#888', fontSize: 12 }}>載入中...</div>
+  if (loading) return <div className="loading-text">載入中...</div>
 
   return (
     <div>
+      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', top: 56, right: 16, zIndex: 9999,
-          background: '#3B6D11', color: 'white', padding: '10px 18px', borderRadius: 8,
-          fontSize: 12, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,.15)',
-        }}>
-          {toast}
-        </div>
+        <div className="toast">{toast}</div>
       )}
 
+      {/* Archive confirm modal */}
       {deleteTarget && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(44,44,42,.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={e => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 360, background: 'white', border: '1.5px solid #E8E5DE', borderRadius: 10, padding: 18, boxShadow: '0 20px 60px rgba(0,0,0,.22)' }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#A32D2D', marginBottom: 8 }}>移除客戶？</div>
-            <div style={{ fontSize: 12, color: '#5F5E5A', lineHeight: 1.7, marginBottom: 14 }}>
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+            <div style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'var(--red)',
+              marginBottom: 10,
+              letterSpacing: '-0.02em',
+            }}>
+              移除客戶？
+            </div>
+            <div style={{
+              fontSize: 12,
+              color: 'var(--t2)',
+              lineHeight: 1.7,
+              marginBottom: 20,
+            }}>
               這不會刪除資料，只會封存「{deleteTarget.store_name}」，並從客戶追蹤頁隱藏。
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
+                className="btn btn-outline"
+                style={{ flex: 1 }}
                 onClick={() => setDeleteTarget(null)}
-                style={{ flex: 1, padding: '9px 12px', border: '1px solid #D3D1C7', borderRadius: 6, background: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
                 取消
               </button>
               <button
                 type="button"
-                onClick={() => { void confirmArchiveCustomer() }}
+                className="btn"
                 disabled={savingId === deleteTarget.id}
-                style={{ flex: 1, padding: '9px 12px', border: 'none', borderRadius: 6, background: '#A32D2D', color: 'white', fontSize: 12, fontWeight: 700, cursor: savingId === deleteTarget.id ? 'wait' : 'pointer' }}
+                style={{ flex: 1, background: 'var(--red)', color: 'white' }}
+                onClick={() => { void confirmArchiveCustomer() }}
               >
                 {savingId === deleteTarget.id ? '移除中...' : '確認移除'}
               </button>
@@ -208,24 +211,32 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 10 }}>
-        客戶追蹤 · 共 {customers.length} 家
+      {/* Page header */}
+      <div className="page-header">
+        <span className="page-meta">客戶追蹤 · {customers.length} 家</span>
       </div>
 
+      {/* Error */}
       {error && (
-        <div style={{ background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 11, color: '#A32D2D' }}>
+        <div className="alert-error" style={{ marginBottom: 14 }}>
           無法讀取客戶：{error}
         </div>
       )}
 
+      {/* Empty state */}
       {customers.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '42px 0', color: '#888', fontSize: 13 }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-          <div style={{ fontWeight: 700, marginBottom: 5 }}>尚無正式客戶</div>
-          <div style={{ fontSize: 11 }}>在欲開發名單完成轉換後，客戶會出現在這裡</div>
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t2)', marginBottom: 6 }}>
+            尚無正式客戶
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+            在欲開發名單完成轉換後，客戶會出現在這裡
+          </div>
         </div>
       )}
 
+      {/* Customer cards */}
       {customers.map(customer => {
         const cardDraft = editingId === customer.id ? draft : null
         const editing = cardDraft !== null
@@ -235,40 +246,45 @@ export default function ClientsPage() {
         const statusOptions = getAllowedCustomerStatusOptions(customer.customer_status)
 
         return (
-          <div
-            key={customer.id}
-            style={{
-              background: 'white',
-              border: '1.5px solid #E8E5DE',
-              borderRadius: 8,
-              padding: '12px 14px',
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+          <div key={customer.id} className="card" style={{ padding: '16px 18px', marginBottom: 12 }}>
+
+            {/* Card top */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 14,
+            }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{customer.store_name}</div>
-                <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{customer.address || '—'}</div>
+                <div style={{
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: 'var(--t1)',
+                  letterSpacing: '-0.02em',
+                  marginBottom: 3,
+                }}>
+                  {customer.store_name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>
+                  {customer.address || '—'}
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flexShrink: 0 }}>
                 {expired && (
-                  <span style={{ fontSize: 9, fontWeight: 700, background: '#FCEBEB', color: '#A32D2D', padding: '3px 8px', borderRadius: 999 }}>
-                    已到期
-                  </span>
+                  <span className="badge badge-red">已到期</span>
                 )}
                 {expiringSoon && (
-                  <span style={{ fontSize: 9, fontWeight: 700, background: '#FAEEDA', color: '#854F0B', padding: '3px 8px', borderRadius: 999 }}>
-                    即將到期
-                  </span>
+                  <span className="badge badge-amber">即將到期</span>
                 )}
-                <span style={{ fontSize: 9, fontWeight: 700, background: '#EAF3DE', color: '#3B6D11', padding: '3px 8px', borderRadius: 999 }}>
+                <span className="badge badge-green">
                   {CUSTOMER_STATUS_LABEL[customer.customer_status]}
                 </span>
                 {!editing && (
                   <button
                     type="button"
+                    className="btn btn-outline btn-xs"
                     onClick={() => startEdit(customer)}
-                    style={{ padding: '3px 8px', border: '1px solid #D3D1C7', borderRadius: 5, background: 'white', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}
                   >
                     編輯
                   </button>
@@ -276,8 +292,13 @@ export default function ClientsPage() {
                 {!editing && (
                   <button
                     type="button"
+                    className="btn btn-xs"
+                    style={{
+                      background: 'transparent',
+                      color: 'var(--red)',
+                      border: '1px solid rgba(163,45,45,0.25)',
+                    }}
                     onClick={() => setDeleteTarget(customer)}
-                    style={{ padding: '3px 8px', border: '1px solid #F09595', borderRadius: 5, background: 'white', color: '#A32D2D', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}
                   >
                     刪除
                   </button>
@@ -285,105 +306,224 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <div style={{ background: '#F8F5EF', borderRadius: 7, padding: '8px 10px', marginBottom: 8 }}>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>BD 協作資訊</div>
+            {/* BD info section */}
+            <div className="card-inner" style={{ marginBottom: 10 }}>
+              <div style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: 'var(--t3)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: 8,
+              }}>
+                BD 協作資訊
+              </div>
+
               {cardDraft ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 5 }}>
-                  <input value={cardDraft.bd_owner} onChange={e => setDraftField('bd_owner', e.target.value)} placeholder="BD負責人" style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
-                  <input value={cardDraft.contact_name} onChange={e => setDraftField('contact_name', e.target.value)} placeholder="聯絡人" style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
-                  <input value={cardDraft.phone} onChange={e => setDraftField('phone', e.target.value)} placeholder="電話" style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
-                  <input value={cardDraft.line_id} onChange={e => setDraftField('line_id', e.target.value)} placeholder="LINE ID" style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
-                  <select value={cardDraft.customer_status} onChange={e => setDraftField('customer_status', e.target.value as CustomerStatus)} style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }}>
-                    {statusOptions.map(status => <option key={status} value={status}>{CUSTOMER_STATUS_LABEL[status]}</option>)}
+                <div className="form-grid-5">
+                  <input
+                    value={cardDraft.bd_owner}
+                    onChange={e => setDraftField('bd_owner', e.target.value)}
+                    placeholder="BD 負責人"
+                    className="input"
+                    style={{ fontSize: 11 }}
+                  />
+                  <input
+                    value={cardDraft.contact_name}
+                    onChange={e => setDraftField('contact_name', e.target.value)}
+                    placeholder="聯絡人"
+                    className="input"
+                    style={{ fontSize: 11 }}
+                  />
+                  <input
+                    value={cardDraft.phone}
+                    onChange={e => setDraftField('phone', e.target.value)}
+                    placeholder="電話"
+                    className="input"
+                    style={{ fontSize: 11 }}
+                  />
+                  <input
+                    value={cardDraft.line_id}
+                    onChange={e => setDraftField('line_id', e.target.value)}
+                    placeholder="LINE ID"
+                    className="input"
+                    style={{ fontSize: 11 }}
+                  />
+                  <select
+                    value={cardDraft.customer_status}
+                    onChange={e => setDraftField('customer_status', e.target.value as CustomerStatus)}
+                    className="select-field"
+                    style={{ fontSize: 11 }}
+                  >
+                    {statusOptions.map(status => (
+                      <option key={status} value={status}>{CUSTOMER_STATUS_LABEL[status]}</option>
+                    ))}
                   </select>
                 </div>
               ) : (
-                <div style={{ fontSize: 10, color: '#5F5E5A', lineHeight: 1.6 }}>
-                  BD：{customer.bd_owner || '—'} · 聯絡人：{customer.contact_name || '—'} · 電話：{customer.phone || '—'} · LINE：{customer.line_id || '—'}
+                <div style={{
+                  fontSize: 11,
+                  color: 'var(--t2)',
+                  lineHeight: 1.7,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '2px 12px',
+                }}>
+                  <span>BD：<strong style={{ color: 'var(--t1)', fontWeight: 500 }}>{customer.bd_owner || '—'}</strong></span>
+                  <span>聯絡人：<strong style={{ color: 'var(--t1)', fontWeight: 500 }}>{customer.contact_name || '—'}</strong></span>
+                  <span>電話：<strong style={{ color: 'var(--t1)', fontWeight: 500 }}>{customer.phone || '—'}</strong></span>
+                  <span>LINE：<strong style={{ color: 'var(--t1)', fontWeight: 500 }}>{customer.line_id || '—'}</strong></span>
                 </div>
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-              <div style={{ background: '#FAF8F2', border: '1px solid #F0EDE6', borderRadius: 7, padding: '8px 10px' }}>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>交易金額</div>
+            {/* Deal + Contract row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div className="card-inner">
+                <div style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: 'var(--t3)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: 6,
+                }}>
+                  交易金額
+                </div>
                 {cardDraft ? (
                   <input
                     type="number"
                     min={0}
                     value={cardDraft.deal_amount}
                     onChange={e => setDraftField('deal_amount', e.target.value)}
-                    style={{ width: '100%', padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
+                    className="input"
+                    style={{ fontSize: 12 }}
                   />
                 ) : (
-                  <div style={{ fontSize: 11, color: '#5F5E5A', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
                     ${Number(customer.deal_amount ?? 0).toLocaleString()}
                   </div>
                 )}
               </div>
-              <div style={{ background: '#FAF8F2', border: '1px solid #F0EDE6', borderRadius: 7, padding: '8px 10px' }}>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>合約日期</div>
+
+              <div className="card-inner">
+                <div style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: 'var(--t3)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: 6,
+                }}>
+                  合約日期
+                </div>
                 {cardDraft ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
-                    <input type="date" value={cardDraft.contract_started_at} onChange={e => setDraftField('contract_started_at', e.target.value)} style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
-                    <input type="date" value={cardDraft.contract_ends_at} onChange={e => setDraftField('contract_ends_at', e.target.value)} style={{ padding: '5px 7px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11 }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <input
+                      type="date"
+                      value={cardDraft.contract_started_at}
+                      onChange={e => setDraftField('contract_started_at', e.target.value)}
+                      className="input"
+                      style={{ fontSize: 11 }}
+                    />
+                    <input
+                      type="date"
+                      value={cardDraft.contract_ends_at}
+                      onChange={e => setDraftField('contract_ends_at', e.target.value)}
+                      className="input"
+                      style={{ fontSize: 11 }}
+                    />
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11, color: '#5F5E5A', lineHeight: 1.6 }}>
-                    {customer.contract_started_at || '—'} → {customer.contract_ends_at || '—'}
+                  <div style={{ fontSize: 11, color: 'var(--t2)', lineHeight: 1.6 }}>
+                    {customer.contract_started_at || '—'}
+                    <span style={{ color: 'var(--t3)', margin: '0 4px' }}>→</span>
+                    {customer.contract_ends_at || '—'}
                   </div>
                 )}
               </div>
             </div>
 
-            <div style={{ background: '#FAF8F2', border: '1px solid #F0EDE6', borderRadius: 7, padding: '8px 10px', marginBottom: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {/* Timestamps */}
+            <div className="card-inner" style={{ marginBottom: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>最後追蹤</div>
-                  <div style={{ fontSize: 11, color: '#5F5E5A', lineHeight: 1.6 }}>
+                  <div style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: 'var(--t3)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: 4,
+                  }}>最後追蹤</div>
+                  <div style={{ fontSize: 11, color: 'var(--t2)' }}>
                     {formatFollowUpTime(customer.leads?.last_follow_up_at)}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>最後異動</div>
-                  <div style={{ fontSize: 11, color: '#5F5E5A', lineHeight: 1.6 }}>
+                  <div style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: 'var(--t3)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: 4,
+                  }}>最後異動</div>
+                  <div style={{ fontSize: 11, color: 'var(--t2)' }}>
                     {formatFollowUpTime(latestLogTimes[customer.id])}
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Notes */}
             <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 3 }}>備註</div>
+              <div style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: 'var(--t3)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                marginBottom: 5,
+              }}>備註</div>
               {cardDraft ? (
                 <textarea
                   value={cardDraft.notes}
                   onChange={e => setDraftField('notes', e.target.value)}
                   rows={3}
-                  style={{ width: '100%', fontSize: 11, lineHeight: 1.6, background: '#FAF8F2', border: '1px solid #D3D1C7', borderRadius: 7, padding: '8px 10px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  className="textarea-field"
                 />
               ) : (
-                <div style={{ fontSize: 11, color: '#5F5E5A', lineHeight: 1.6, background: '#FAF8F2', border: '1px solid #F0EDE6', borderRadius: 7, padding: '8px 10px', minHeight: 20 }}>
+                <div className="card-inner" style={{ minHeight: 36, fontSize: 12, color: customer.notes ? 'var(--t1)' : 'var(--t3)' }}>
                   {customer.notes || '—'}
                 </div>
               )}
             </div>
 
+            {/* Save / Cancel */}
             {editing && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px solid #F0EDE6' }}>
+              <div style={{
+                display: 'flex',
+                gap: 8,
+                marginTop: 14,
+                paddingTop: 12,
+                borderTop: '1px solid var(--border)',
+              }}>
                 <button
                   type="button"
-                  onClick={() => saveEdit(customer)}
+                  className="btn btn-success"
+                  style={{ flex: 1 }}
                   disabled={savingId === customer.id}
-                  style={{ flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, background: '#3B6D11', color: 'white', fontSize: 11, fontWeight: 700, cursor: savingId === customer.id ? 'wait' : 'pointer' }}
+                  onClick={() => saveEdit(customer)}
                 >
                   {savingId === customer.id ? '儲存中…' : '儲存'}
                 </button>
                 <button
                   type="button"
-                  onClick={cancelEdit}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
                   disabled={savingId === customer.id}
-                  style={{ flex: 1, padding: '8px 12px', border: '1px solid #D3D1C7', borderRadius: 6, background: 'white', color: '#5F5E5A', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                  onClick={cancelEdit}
                 >
                   取消
                 </button>

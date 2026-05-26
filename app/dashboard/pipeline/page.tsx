@@ -164,68 +164,87 @@ function PipelineContent() {
     router.push('/dashboard/clients')
   }
 
-  if (loading) return <div style={{ color: '#888', fontSize: 12 }}>載入中...</div>
+  if (loading) {
+    return <div className="loading-text">載入中...</div>
+  }
 
   return (
     <div>
+      {/* Save banner */}
       {saveBanner && (
-        <div style={{ background: '#EAF3DE', border: '1px solid #97C459', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 11, color: '#3B6D11', fontWeight: 600 }}>
+        <div className="alert-success" style={{ marginBottom: 14 }}>
           ✅ 推銷信已儲存，狀態已更新
         </div>
       )}
 
+      {/* Load error */}
       {loadError && (
-        <div style={{ background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 11, color: '#A32D2D' }}>
+        <div className="alert-error" style={{ marginBottom: 14 }}>
           無法讀取名單：{loadError}
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 9, color: '#888', textTransform: 'uppercase', letterSpacing: .5 }}>
-          欲開發名單 · 共 {leads.length} 家
-        </div>
+      {/* Header row */}
+      <div className="page-header">
+        <span className="page-meta">欲開發名單 · {leads.length} 家</span>
         <button
           type="button"
+          className={`btn ${showForm ? 'btn-outline' : 'btn-success'} btn-sm`}
           onClick={() => setShowForm(v => !v)}
-          style={{ padding: '6px 12px', background: showForm ? '#5F5E5A' : '#3B6D11', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
         >
-          {showForm ? '收起' : '＋ 手動新增店家'}
+          {showForm ? '收起' : '＋ 手動新增'}
         </button>
       </div>
 
+      {/* Manual add form */}
       {showForm && (
         <form
           onSubmit={submitManual}
-          style={{ background: 'white', border: '1.5px solid #97C459', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}
+          className="card"
+          style={{
+            padding: '16px 18px',
+            marginBottom: 14,
+            borderColor: 'rgba(59,109,17,0.25)',
+          }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#3B6D11' }}>手動新增店家</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            marginBottom: 12,
+            color: 'var(--green)',
+            letterSpacing: '-0.01em',
+          }}>
+            手動新增店家
+          </div>
+
+          <div className="form-grid-2" style={{ marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>店家名稱 *</div>
+              <label className="field-label">店家名稱 *</label>
               <input
                 required
                 value={form.store_name}
                 onChange={e => setForm(f => ({ ...f, store_name: e.target.value }))}
-                style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
+                className="input"
               />
             </div>
             <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>BD負責人</div>
+              <label className="field-label">BD 負責人</label>
               <input
                 value={form.owner_name}
                 onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))}
                 placeholder="例如：Evan"
-                style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
+                className="input"
               />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+
+          <div className="form-grid-2" style={{ marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>類別</div>
+              <label className="field-label">類別</label>
               <select
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
+                className="select-field"
               >
                 <option value="restaurant">餐廳</option>
                 <option value="cafe">咖啡廳</option>
@@ -234,52 +253,104 @@ function PipelineContent() {
                 <option value="night_market">夜市</option>
               </select>
             </div>
+            <div>
+              <label className="field-label">地址</label>
+              <input
+                value={form.address}
+                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                className="input"
+              />
+            </div>
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>地址</div>
-            <input
-              value={form.address}
-              onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
-            />
-          </div>
+
           <button
             type="submit"
             disabled={saving || !form.store_name.trim()}
-            style={{ padding: '8px 16px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+            className="btn btn-success btn-sm"
           >
-            加入欲開發名單
+            {saving ? '新增中...' : '加入欲開發名單'}
           </button>
         </form>
       )}
 
+      {/* Empty state */}
       {leads.length === 0 && !loadError && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#888', fontSize: 13 }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🎯</div>
-          <div style={{ fontWeight: 600 }}>尚無欲開發名單</div>
+        <div className="empty-state">
+          <div className="empty-icon">🎯</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t2)', marginBottom: 6 }}>
+            尚無欲開發名單
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+            從地圖搜尋商家，或手動新增開始開發
+          </div>
         </div>
       )}
 
+      {/* Lead cards */}
       {leads.map(lead => {
         const highlighted = highlightLeadId === lead.id
 
         return (
-          <div key={lead.id} style={{ background: 'white', border: highlighted ? '2px solid #C8841A' : '1.5px solid #E8E5DE', borderRadius: 8, padding: '12px 14px', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <span style={{ fontSize: 20 }}>{getIcon(lead.category)}</span>
+          <div
+            key={lead.id}
+            className="card"
+            style={{
+              padding: '16px 18px',
+              marginBottom: 12,
+              borderColor: highlighted ? 'var(--gold)' : undefined,
+              boxShadow: highlighted
+                ? '0 0 0 2px rgba(200,132,26,0.2), var(--sh-sm)'
+                : undefined,
+            }}
+          >
+            {/* Card header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 14,
+              gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+                <span style={{
+                  fontSize: 22,
+                  flexShrink: 0,
+                  lineHeight: 1,
+                  marginTop: 1,
+                }}>{getIcon(lead.category)}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{lead.store_name}</div>
-                  <div style={{ fontSize: 9, color: '#888' }}>{lead.address || '—'}</div>
-                  <div style={{ fontSize: 9, color: '#185FA5', marginTop: 2 }}>
-                    {LEAD_SOURCE_LABEL[lead.source as LeadSource]} · {new Date(lead.created_at).toLocaleDateString('zh-TW')}
+                  <div style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'var(--t1)',
+                    letterSpacing: '-0.02em',
+                    marginBottom: 3,
+                  }}>{lead.store_name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 2 }}>
+                    {lead.address || '—'}
+                  </div>
+                  <div style={{
+                    fontSize: 10,
+                    color: 'var(--blue)',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}>
+                    <span>{LEAD_SOURCE_LABEL[lead.source as LeadSource]}</span>
+                    <span style={{ color: 'var(--t3)' }}>·</span>
+                    <span style={{ color: 'var(--t3)' }}>
+                      {new Date(lead.created_at).toLocaleDateString('zh-TW')}
+                    </span>
                   </div>
                 </div>
               </div>
+
               <select
                 value={normalizeLeadStatus(lead.status)}
                 onChange={e => setStatus(lead.id, e.target.value as LeadStatus)}
-                style={{ fontSize: 10, fontWeight: 700, padding: '4px 8px', border: '1px solid #D3D1C7', borderRadius: 5, background: '#FAF8F2' }}
+                className="select-field"
+                style={{ width: 'auto', fontSize: 11, fontWeight: 600, flexShrink: 0 }}
               >
                 {LEAD_STATUS_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -287,96 +358,68 @@ function PipelineContent() {
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
-              <div>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>BD負責人</div>
-                <input
-                  defaultValue={lead.owner_name}
-                  placeholder="未指定"
-                  onBlur={e => { if (e.target.value !== lead.owner_name) saveLeadPatch(lead.id, { owner_name: e.target.value.trim() }) }}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>聯絡人</div>
-                <input
-                  defaultValue={lead.contact_name}
-                  placeholder="接洽人"
-                  onBlur={e => { if (e.target.value !== lead.contact_name) saveLeadPatch(lead.id, { contact_name: e.target.value.trim() }) }}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>電話</div>
-                <input
-                  defaultValue={lead.phone}
-                  placeholder="電話"
-                  onBlur={e => { if (e.target.value !== lead.phone) saveLeadPatch(lead.id, { phone: e.target.value.trim() }) }}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>LINE</div>
-                <input
-                  defaultValue={lead.line_id}
-                  placeholder="LINE ID"
-                  onBlur={e => { if (e.target.value !== lead.line_id) saveLeadPatch(lead.id, { line_id: e.target.value.trim() }) }}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
-                />
-              </div>
+            {/* BD fields */}
+            <div className="form-grid-4" style={{ marginBottom: 12 }}>
+              {[
+                { label: 'BD 負責人', field: 'owner_name' as const, placeholder: '未指定' },
+                { label: '聯絡人',    field: 'contact_name' as const, placeholder: '接洽人' },
+                { label: '電話',      field: 'phone' as const, placeholder: '電話' },
+                { label: 'LINE',      field: 'line_id' as const, placeholder: 'LINE ID' },
+              ].map(({ label, field, placeholder }) => (
+                <div key={field}>
+                  <label className="field-label">{label}</label>
+                  <input
+                    defaultValue={lead[field] ?? ''}
+                    placeholder={placeholder}
+                    className="input"
+                    onBlur={e => {
+                      if (e.target.value !== (lead[field] ?? ''))
+                        saveLeadPatch(lead.id, { [field]: e.target.value.trim() })
+                    }}
+                  />
+                </div>
+              ))}
             </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>備註</div>
+            {/* Notes */}
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">備註</label>
               <textarea
-                defaultValue={lead.notes}
-                onBlur={e => { if (e.target.value !== lead.notes) saveLeadPatch(lead.id, { notes: e.target.value }) }}
+                defaultValue={lead.notes ?? ''}
+                onBlur={e => {
+                  if (e.target.value !== (lead.notes ?? ''))
+                    saveLeadPatch(lead.id, { notes: e.target.value })
+                }}
                 rows={2}
-                style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                className="textarea-field"
               />
             </div>
 
-            <div style={{ paddingTop: 8, borderTop: '1px solid #F0EDE6' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
+            {/* Card footer */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                 <button
                   type="button"
+                  className="btn btn-primary"
+                  style={{ flex: 1, justifyContent: 'center' }}
                   onClick={() => router.push(`/dashboard/email?leadId=${lead.id}`)}
-                  style={{
-                    flex: 1,
-                    padding: '9px 14px',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: '#C8841A',
-                    color: 'white',
-                    cursor: 'pointer',
-                  }}
                 >
                   ✉️ 推銷信
                 </button>
                 <button
                   type="button"
+                  className="btn btn-success"
+                  style={{ flex: 1, justifyContent: 'center' }}
                   onClick={() => signMou(lead)}
-                  style={{
-                    flex: 1,
-                    padding: '9px 14px',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: '#3B6D11',
-                    color: 'white',
-                    cursor: 'pointer',
-                  }}
                 >
-                  簽MOU →
+                  簽 MOU →
                 </button>
               </div>
               <button
                 type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 10 }}
                 onClick={() => removeLead(lead.id, lead.store_name)}
-                style={{ marginTop: 6, padding: '4px 8px', background: 'transparent', color: '#A32D2D', border: 'none', fontSize: 9, cursor: 'pointer' }}
               >
                 ✕ 從名單移除
               </button>
@@ -390,7 +433,7 @@ function PipelineContent() {
 
 export default function PipelinePage() {
   return (
-    <Suspense fallback={<div style={{ color: '#888', fontSize: 12 }}>載入中...</div>}>
+    <Suspense fallback={<div className="loading-text">載入中...</div>}>
       <PipelineContent />
     </Suspense>
   )

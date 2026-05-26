@@ -6,14 +6,14 @@ import { getCustomerLogs, type CustomerLogRow } from '@/lib/customerLogs'
 
 const ACTION_LABEL: Record<CustomerLogRow['action_type'], string> = {
   customer_created: '建立客戶',
-  status_changed: '狀態變更',
+  status_changed:   '狀態變更',
   customer_deleted: '刪除客戶',
 }
 
 const ACTION_STYLE: Record<CustomerLogRow['action_type'], { bg: string; color: string; icon: string }> = {
-  customer_created: { bg: '#EAF3DE', color: '#3B6D11', icon: '＋' },
-  status_changed: { bg: '#E6F1FB', color: '#185FA5', icon: '↔' },
-  customer_deleted: { bg: '#FCEBEB', color: '#A32D2D', icon: '✕' },
+  customer_created: { bg: 'var(--green-bg)', color: 'var(--green)',  icon: '＋' },
+  status_changed:   { bg: 'var(--blue-bg)',  color: 'var(--blue)',   icon: '↔' },
+  customer_deleted: { bg: 'var(--red-bg)',   color: 'var(--red)',    icon: '✕' },
 }
 
 function formatDateTime(value: string): string {
@@ -56,11 +56,11 @@ export default function ChangelogPage() {
       })
   }, [])
 
-  if (loading) return <div style={{ color: '#888', fontSize: 12 }}>載入中...</div>
+  if (loading) return <div className="loading-text">載入中...</div>
 
   if (error) {
     return (
-      <div style={{ background: '#FCEBEB', border: '1px solid #F09595', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: '#A32D2D' }}>
+      <div className="alert-error">
         無法讀取異動紀錄：{error}
       </div>
     )
@@ -68,42 +68,101 @@ export default function ChangelogPage() {
 
   if (logs.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0', color: '#888' }}>
-        <div style={{ fontSize: 32, marginBottom: 10 }}>📁</div>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>尚無異動紀錄</div>
-        <div style={{ fontSize: 11 }}>建立客戶、狀態修改、刪除客戶時，紀錄會出現在這裡</div>
+      <div className="empty-state">
+        <div className="empty-icon">📁</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t2)', marginBottom: 6 }}>
+          尚無異動紀錄
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+          建立客戶、狀態修改、刪除客戶時，紀錄會出現在這裡
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 600 }}>
-        📁 商家異動紀錄 — 共 {logs.length} 筆
+    <div>
+      <div className="page-header">
+        <span className="page-meta">異動紀錄 · {logs.length} 筆</span>
       </div>
-      {logs.map(log => {
-        const actionStyle = ACTION_STYLE[log.action_type]
-        return (
-          <div key={log.id} style={{ padding: '11px 14px', borderBottom: '1px solid #F8F6F2', display: 'flex', alignItems: 'start', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: actionStyle.bg, color: actionStyle.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
-              {actionStyle.icon}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{log.customers?.store_name ?? '未知客戶'}</div>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: actionStyle.bg, color: actionStyle.color }}>
-                  {ACTION_LABEL[log.action_type]}
-                </span>
+
+      <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
+        {logs.map((log, idx) => {
+          const style = ACTION_STYLE[log.action_type]
+          const isLast = idx === logs.length - 1
+
+          return (
+            <div
+              key={log.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 14,
+                padding: '14px 18px',
+                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+              }}
+            >
+              {/* Avatar icon */}
+              <div style={{
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                background: style.bg,
+                color: style.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 14,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}>
+                {style.icon}
               </div>
-              <div style={{ fontSize: 11, color: '#5F5E5A', marginBottom: 2 }}>{changeText(log)}</div>
-              {log.note && <div style={{ fontSize: 10, color: '#888' }}>備註：{log.note}</div>}
-              <div style={{ fontSize: 9, color: '#aaa', marginTop: 3 }}>
-                {formatDateTime(log.created_at)}
+
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  marginBottom: 4,
+                  flexWrap: 'wrap',
+                }}>
+                  <div style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--t1)',
+                    letterSpacing: '-0.01em',
+                  }}>
+                    {log.customers?.store_name ?? '未知客戶'}
+                  </div>
+                  <span className={`badge badge-${
+                    log.action_type === 'customer_created' ? 'green' :
+                    log.action_type === 'status_changed'   ? 'blue' : 'red'
+                  }`}>
+                    {ACTION_LABEL[log.action_type]}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 3 }}>
+                  {changeText(log)}
+                </div>
+
+                {log.note && (
+                  <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>
+                    備註：{log.note}
+                  </div>
+                )}
+
+                <div style={{ fontSize: 10, color: 'var(--t3)', letterSpacing: '0.02em' }}>
+                  {formatDateTime(log.created_at)}
+                </div>
               </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
