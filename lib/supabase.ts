@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  .replace(/\/rest\/v1\/?$/, '')
+  .replace(/\/$/, '')
 // Use service role key so all reads/writes bypass RLS on this internal CRM
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY
   || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
