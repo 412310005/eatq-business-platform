@@ -21,6 +21,8 @@ function normalizeSupabaseRequest(input: Parameters<typeof fetch>[0]): Parameter
   return new Request(normalizedUrl, input)
 }
 
+console.log('SUPABASE URL =', supabaseUrl)
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   global: {
     fetch: (input, init) => fetch(normalizeSupabaseRequest(input), init),
