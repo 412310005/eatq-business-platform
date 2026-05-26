@@ -5,6 +5,7 @@ import type { BusinessRow } from '@/lib/constants'
 import { getScore } from '@/lib/constants'
 
 const TAINAN: [number, number] = [22.9999, 120.2269]
+const MAP_BUILD = 'v3-area-debug'
 
 const CAT_ICON: Record<string, string> = {
   restaurant: '🍱', cafe: '☕', night_market: '🍢', bar: '🍺', bakery: '🥐',
@@ -16,29 +17,107 @@ interface Props {
   onPinClick: (id: string) => void
   userLoc: [number, number] | null
   searchLoc?: [number, number] | null
+  onMapCenterChange?: (center: { lat: number; lng: number }) => void
 }
 
-export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc }: Props) {
+export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc, onMapCenterChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)   // position:absolute wrapper
   const mapRef = useRef<HTMLDivElement>(null)          // Leaflet attaches here
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
   const userMarkerRef = useRef<any>(null)
   const searchMarkerRef = useRef<any>(null)
+  const programmaticPanRef = useRef(0)
+  const lastFlownRef = useRef<string | null>(null)
+  const onMapCenterChangeRef = useRef(onMapCenterChange)
+  const viewportHandlersRef = useRef<{ onMoveEnd: () => void; onDragEnd: () => void; onZoomEnd: () => void } | null>(null)
   const [ready, setReady] = useState(false)
+
+  console.log('[areaDebug] LeafletMap render', { build: MAP_BUILD, ready, hasMapInstance: !!mapInstanceRef.current })
+
+  useEffect(() => {
+    onMapCenterChangeRef.current = onMapCenterChange
+    console.log('[areaDebug] LeafletMap callback ref updated', { build: MAP_BUILD, hasCallback: !!onMapCenterChange })
+  }, [onMapCenterChange])
+
+  function beginProgrammaticPan(map: any) {
+    programmaticPanRef.current += 1
+    console.log('[areaDebug] beginProgrammaticPan', { panCount: programmaticPanRef.current })
+    map.once('moveend', () => {
+      programmaticPanRef.current = Math.max(0, programmaticPanRef.current - 1)
+      console.log('[areaDebug] programmaticPan moveend done', { panCount: programmaticPanRef.current })
+      // moveend 監聽可能在 pan 計數歸零前觸發而被擋下，flyTo 結束後強制同步一次
+      reportMapCenter(map, 'programmaticPan-done')
+    })
+    setTimeout(() => {
+      if (programmaticPanRef.current > 0) {
+        console.warn('[areaDebug] programmaticPan timeout reset', { was: programmaticPanRef.current })
+        programmaticPanRef.current = 0
+      }
+    }, 2500)
+  }
+
+  function attachViewportListeners(map: any) {
+    const mapId = map?._leaflet_id
+    const onMoveEnd = () => {
+      console.log('[areaDebug] moveend fired', { mapId, build: MAP_BUILD })
+      reportMapCenter(map, 'moveend')
+    }
+    const onDragEnd = () => {
+      console.log('[areaDebug] dragend fired', { mapId, build: MAP_BUILD })
+      reportMapCenter(map, 'dragend')
+    }
+    const onZoomEnd = () => {
+      console.log('[areaDebug] zoomend fired', { mapId, build: MAP_BUILD })
+      reportMapCenter(map, 'zoomend')
+    }
+    map.on('moveend', onMoveEnd)
+    map.on('dragend', onDragEnd)
+    map.on('zoomend', onZoomEnd)
+    console.log('[areaDebug] listener attached OK', {
+      mapId,
+      build: MAP_BUILD,
+      isCurrentInstance: mapInstanceRef.current === map,
+      listensMoveend: typeof map.listens === 'function' ? map.listens('moveend') : 'n/a',
+    })
+    return { onMoveEnd, onDragEnd, onZoomEnd }
+  }
+
+  function reportMapCenter(map: any, source: string) {
+    const c = map.getCenter()
+    const blocked = programmaticPanRef.current > 0
+    console.log('[areaDebug] reportMapCenter', { source, blocked, panCount: programmaticPanRef.current, lat: c.lat, lng: c.lng, hasCallback: !!onMapCenterChangeRef.current })
+    if (blocked) return
+    if (!onMapCenterChangeRef.current) {
+      console.warn('[areaDebug] onMapCenterChange ref is missing — callback not passed to LeafletMap')
+      return
+    }
+    onMapCenterChangeRef.current({ lat: c.lat, lng: c.lng })
+  }
 
   // ── Init map (once) ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return
+    console.log('[areaDebug] init effect start', { build: MAP_BUILD, hasMapRef: !!mapRef.current, hasMapInstance: !!mapInstanceRef.current })
+    if (!mapRef.current) {
+      console.warn('[areaDebug] map init skipped: no mapRef')
+      return
+    }
     // Use a ref-based generation counter so cleanup can cancel async callbacks
     // even across the StrictMode double-invoke cycle
     const initId = Date.now() + Math.random()
-    ;(mapRef.current as any).__eatq_initId = initId
+    const el = mapRef.current
+    ;(el as any).__eatq_initId = initId
 
     import('leaflet').then(Lmod => {
-      if (!mapRef.current || mapInstanceRef.current) return
-      // If a newer init has started (cleanup ran + re-mount), abort this one
-      if ((mapRef.current as any).__eatq_initId !== initId) return
+      console.log('[areaDebug] leaflet import done', { initId, domInitId: (el as any).__eatq_initId, mapRefLive: mapRef.current === el })
+      if (!mapRef.current || mapRef.current !== el) {
+        console.warn('[areaDebug] then aborted: mapRef gone or replaced')
+        return
+      }
+      if ((el as any).__eatq_initId !== initId) {
+        console.warn('[areaDebug] then aborted: stale initId', { initId, domInitId: (el as any).__eatq_initId })
+        return
+      }
 
       const L = Lmod.default ?? Lmod
 
@@ -66,45 +145,74 @@ export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc 
         document.head.appendChild(style)
       }
 
-      // Clear any stale Leaflet attachment (HMR or incomplete cleanup)
-      const existingId = (mapRef.current as any)._leaflet_id
-      console.log('[LeafletMap v2] init, _leaflet_id=', existingId, 'initId match=', (mapRef.current as any).__eatq_initId === initId)
-      if (existingId) {
-        delete (mapRef.current as any)._leaflet_id
-        console.log('[LeafletMap v2] cleared stale _leaflet_id')
-      }
+      // _leaflet_id is undefined BEFORE L.map() — that is normal
+      const beforeId = (el as any)._leaflet_id
+      console.log('[areaDebug] before L.map', { _leaflet_id: beforeId, initId })
 
       let map: any
       try {
-        map = L.map(mapRef.current!, {
+        if (beforeId != null) {
+          console.log('[areaDebug] clearing stale _leaflet_id on el', { beforeId })
+          delete (el as any)._leaflet_id
+        }
+        map = L.map(el, {
           zoomControl: true,
           scrollWheelZoom: true,
+          dragging: true,
           attributionControl: false,
         }).setView(TAINAN, 13)
+        console.log('[areaDebug] L.map OK', {
+          mapId: map._leaflet_id,
+          center: map.getCenter(),
+          isSameAsRef: mapInstanceRef.current === map,
+        })
       } catch (e: any) {
-        console.warn('[LeafletMap v2] L.map() failed:', e.message)
+        console.error('[areaDebug] L.map FAILED', e?.message ?? e)
         return
       }
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
-      L.control.attribution({ prefix: '© <a href="https://osm.org">OSM</a>' }).addTo(map)
+      try {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
+        L.control.attribution({ prefix: '© <a href="https://osm.org">OSM</a>' }).addTo(map)
+        map.dragging?.enable()
+        console.log('[areaDebug] tiles + dragging OK', { dragging: !!map.dragging?.enabled() })
+      } catch (e: any) {
+        console.error('[areaDebug] tileLayer FAILED', e?.message ?? e)
+        map.remove()
+        return
+      }
 
-      ;(window as any).__eatq_goto = (id: string) => onPinClick(id)
       mapInstanceRef.current = map
+      ;(window as any).__eatq_map = map
+      ;(window as any).__eatq_goto = (id: string) => onPinClick(id)
+
+      const handlers = attachViewportListeners(map)
+      viewportHandlersRef.current = handlers
+
       setReady(true)
+      console.log('[areaDebug] setReady(true)', { mapId: map._leaflet_id })
 
       requestAnimationFrame(() => { map.invalidateSize(false) })
+    }).catch(err => {
+      console.error('[areaDebug] leaflet import FAILED', err)
     })
 
     return () => {
-      // Invalidate any pending init callback for this DOM node
-      if (mapRef.current) {
-        (mapRef.current as any).__eatq_initId = null
+      console.log('[areaDebug] init effect cleanup', { build: MAP_BUILD })
+      ;(el as any).__eatq_initId = null
+      const map = mapInstanceRef.current
+      if (map && viewportHandlersRef.current) {
+        map.off('moveend', viewportHandlersRef.current.onMoveEnd)
+        map.off('dragend', viewportHandlersRef.current.onDragEnd)
+        map.off('zoomend', viewportHandlersRef.current.onZoomEnd)
+        viewportHandlersRef.current = null
       }
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
+      if (map) {
+        map.remove()
         mapInstanceRef.current = null
+        if ((window as any).__eatq_map === map) (window as any).__eatq_map = null
       }
+      setReady(false)
     }
   }, [])
 
@@ -167,7 +275,12 @@ export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc 
       if (userMarkerRef.current) { map.removeLayer(userMarkerRef.current); userMarkerRef.current = null }
 
       if (userLoc) {
-        map.flyTo(userLoc, 14, { duration: 1 })
+        const flyKey = `user:${userLoc[0]},${userLoc[1]}`
+        if (lastFlownRef.current !== flyKey) {
+          lastFlownRef.current = flyKey
+          beginProgrammaticPan(map)
+          map.flyTo(userLoc, 14, { duration: 1 })
+        }
         const pulse = L.divIcon({
           html: `<div style="position:relative;width:20px;height:20px">
             <div class="eatq-ring"></div><div class="eatq-ring2"></div>
@@ -179,7 +292,12 @@ export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc 
         m.bindPopup('您目前的位置')
         userMarkerRef.current = m
       } else if (!searchLoc) {
-        map.flyTo(TAINAN, 13, { duration: 1 })
+        const flyKey = 'tainan'
+        if (lastFlownRef.current !== flyKey) {
+          lastFlownRef.current = flyKey
+          beginProgrammaticPan(map)
+          map.flyTo(TAINAN, 13, { duration: 1 })
+        }
       }
     })
   }, [userLoc, ready])
@@ -194,7 +312,12 @@ export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc 
       if (searchMarkerRef.current) { map.removeLayer(searchMarkerRef.current); searchMarkerRef.current = null }
 
       if (searchLoc) {
-        map.flyTo(searchLoc, 15, { duration: 1 })
+        const flyKey = `search:${searchLoc[0]},${searchLoc[1]}`
+        if (lastFlownRef.current !== flyKey) {
+          lastFlownRef.current = flyKey
+          beginProgrammaticPan(map)
+          map.flyTo(searchLoc, 15, { duration: 1 })
+        }
         const redPin = L.divIcon({
           html: `<div style="position:relative;width:24px;height:24px">
             <div style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:#D32F2F;border:3px solid white;box-shadow:0 2px 8px rgba(211,47,47,.5);transform:rotate(-45deg)"></div>
@@ -214,7 +337,7 @@ export default function LeafletMap({ businesses, onPinClick, userLoc, searchLoc 
     // This avoids height:100% on a flex child, which Chrome sometimes resolves to 0
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>
       <div style={{ position: 'absolute', inset: 0, borderRadius: 7, overflow: 'hidden' }}>
-        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        <div ref={mapRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
       </div>
       {!ready && (
         <div style={{ position: 'absolute', inset: 0, background: '#F0EDE6', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#888' }}>

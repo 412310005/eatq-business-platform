@@ -44,6 +44,11 @@
 | 地址搜尋 + 半徑擴展（1→3 km） | — | ✅ | **CRM 新增** |
 | 距離排序（haversine） | — | ✅ | **CRM 新增** |
 | Pin 依相關度著色 | ✅ | ✅ | |
+| OSM 區域搜尋（Overpass） | — | ✅ | `POST /api/overpass` |
+| OSM → AI 串接（query 帶 name/address/reviews） | — | ✅ | `lib/osmAiNavigation.ts` |
+| Map session restore（返回 map 保留列表） | — | ✅ | sessionStorage |
+| OSM displayName 產品化 | — | ✅ | `lib/osmDisplayName.ts` |
+| OSM enrich pipeline（**FROZEN**） | — | ✅ | `lib/osmEnrich.ts` · 見 [`OSM_ENRICHMENT_ROADMAP.md`](./OSM_ENRICHMENT_ROADMAP.md) |
 
 ### AI 痛點診斷
 
@@ -121,11 +126,37 @@
 | 推銷方向常數（DIRS） | ✅ | ✅ | `lib/constants.ts` |
 | 評論分類常數（CATS） | ✅ | ✅ | |
 | Supabase 持久化（businesses / reviews / pipeline / clients / changelogs） | — | ✅ | **CRM 新增** |
+| 欲開發名單 `leads` 表（獨立於舊 pipeline） | — | ✅ | `scripts/leads-table.sql` |
 | Pipeline 留言持久化 | ✅ | ✅ | prototype 為 memory |
 
 ---
 
-## 2. 高優先級（近期）
+## 2. 下一階段開發優先（2026-05）
+
+> **OSM 路名 enrich 已 freeze**，詳見 [`OSM_ENRICHMENT_ROADMAP.md`](./OSM_ENRICHMENT_ROADMAP.md)。以下為現階段主線。
+
+| 優先 | 功能 | 待做 | 說明 |
+|:----:|------|:----:|------|
+| 1 | 欲開發名單 MVP（`leads` 表） | ✅ | 手動新增、地圖/OSM/AI/推銷信加入、`lib/leads.ts` |
+| 2 | CRM 狀態（待開發/已聯絡/追蹤中/已成交） | ✅ | `app/dashboard/pipeline/page.tsx` |
+| 3 | AI 分析摘要保存 | ✅ | `ai_summary` 欄位（OSM + CRM） |
+| 4 | 店家標籤系統 | ⬜ | 自訂 tag、篩選、列表顯示 |
+| 5 | 業務拜訪紀錄 | ⬜ | 拜訪日誌、備註、下次 follow-up |
+| 6 | 商圈熱區分析 | ⬜ | 密度、OSM+CRM 聚合視覺化 |
+| 7 | SEO / 數位化成熟度評分 | ⬜ | 評分模型、地圖/列表展示 |
+
+### 建議 Sprint 順序
+
+```
+Sprint A   欲開發收藏 + pipeline 狀態機
+Sprint B   AI 分析結果保存 + 店家標籤
+Sprint C   拜訪紀錄 + 商圈熱區
+Sprint D   SEO / 數位化成熟度評分
+```
+
+---
+
+## 3. 高優先級（維運 / 技術）
 
 > 影響日常可用性、資料安全，或 prototype 已有 UI 但兩邊皆未接好。
 
@@ -142,7 +173,7 @@
 
 ---
 
-## 3. 中優先級
+## 4. 中優先級
 
 > 正式化、安全加固、業務效率提升。
 
@@ -164,7 +195,7 @@
 
 ---
 
-## 4. 未來功能
+## 5. 未來功能
 
 > Phase 3 擴展，prototype 未完整定義或標示「即將推出」。
 
@@ -172,7 +203,7 @@
 |------|:-----:|:---:|:----:|------|
 | 主管 Dashboard（團隊 KPI、衝突總覽） | ✅ 角色 UI | ✅ 角色 UI | ⬜ | |
 | 真實 LLM 評論摘要與 pitch | — | — | ⬜ | 取代 rule-based「AI」 |
-| Google Places API 自動匯入評論 | — | — | ⬜ | |
+| Google Places API 自動匯入評論 | — | — | ⬜ | 見 OSM_ENRICHMENT_ROADMAP Phase Later |
 | 🟣 訂位系統（續約方案） | ✅ 即將推出 | ✅ 即將推出 | ⬜ | renew modal 已預留 |
 | 🔵 點餐系統（續約方案） | ✅ 即將推出 | ✅ 即將推出 | ⬜ | renew modal 已預留 |
 | 環境指標 dashboard（剩食減少噸數） | ✅ 靜態 | ✅ 靜態 | ⬜ | 需 sticker 真實聚合 |
@@ -184,7 +215,7 @@
 
 ---
 
-## 5. Bug / 技術債
+## 6. Bug / 技術債
 
 | 項目 | Proto | CRM | 待做 | 嚴重度 | 說明 |
 |------|:-----:|:---:|:----:|:------:|------|
@@ -205,16 +236,6 @@
 
 ---
 
-## 建議執行順序（近期 Sprint）
-
-```
-Week 1–2   複製按鈕 · layout/map 定位連動 · .env.example · schema migration
-Week 3–4   Supabase Auth + RLS · Server Actions · 移除 client service role
-Week 5–6   匯出 · MOU 上傳 · 渠道 deep link · 靜態 KPI 接真實資料
-```
-
----
-
 ## 完成度快照
 
 | 類別 | Proto | CRM | 差距 |
@@ -227,4 +248,4 @@ Week 5–6   匯出 · MOU 上傳 · 渠道 deep link · 靜態 KPI 接真實資
 
 ---
 
-*文件版本：2026-05-20 · 同步自 PROJECT_OVERVIEW.md*
+*文件版本：2026-05-20 · OSM enrich frozen · 下一階段見 §2*

@@ -1,0 +1,6 @@
+-- Deprecated.
+-- EatQ CRM 已改為 BD 協作開發 status enum：
+-- new / contacted / interested / meeting / negotiating / converted / lost
+--
+-- 請改執行：
+-- scripts/leads-bd-collaboration-migration.sql

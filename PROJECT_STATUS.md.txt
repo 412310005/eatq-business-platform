@@ -1,0 +1,38 @@
+# EatQ CRM - Project Status
+
+## Tech Stack
+- Next.js
+- TypeScript
+- Supabase
+- Leaflet
+- TailwindCSS
+
+## Current Features
+- 商家地圖
+- AI 痛點分析
+- Pipeline 欲開發名單
+- Supabase 串接
+
+## Current Bugs
+
+### 地圖頁
+- 地圖下方仍有留白
+- map layout 尚未真正 flex fill
+- 搜尋後 nearby business 更新不完整
+
+### AI頁
+- pipeline insert 需驗證
+- reload button 需驗證
+
+## Claude Recently Modified
+- map/page.tsx
+- ai/page.tsx
+- LeafletMap.tsx
+
+## Important Rules
+- 不要重構頁面
+- 不要新增 duplicate component
+- 優先修 state flow
+- 修改後需驗證 npm run dev
+
+

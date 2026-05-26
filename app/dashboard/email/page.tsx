@@ -2,176 +2,363 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { DIRS, buildEmailBody, buildScript, type BusinessRow, type DirKey, type Review } from '@/lib/constants'
+import { getLeadById, updateLead } from '@/lib/leads'
+import {
+  generateMockPitch,
+  parseStoredPitch,
+  serializePitch,
+  categoryLabel,
+  formatAiSummaryWithDirection,
+  parsePitchDirectionFromSummary,
+  displayAiSummaryText,
+  PITCH_DIRECTIONS,
+  type PitchContent,
+  type PitchDirectionId,
+} from '@/lib/pitchGenerator'
 
 const CHANNEL_TABS = [
   { id: 'email', label: 'Email' },
-  { id: 'line',  label: 'LINE' },
-  { id: 'ig',    label: 'IG/FB' },
-  { id: 'call',  label: '電話腳本' },
-]
+  { id: 'line', label: 'LINE' },
+  { id: 'ig', label: 'IG/FB' },
+  { id: 'call', label: '電話腳本' },
+] as const
+
+type ChannelId = (typeof CHANNEL_TABS)[number]['id']
+
+const EMPTY_PITCH: PitchContent = {
+  email: '',
+  line: '',
+  ig: '',
+  call: '',
+  directionId: 'food_waste',
+  directionLabel: '剩食變收入',
+}
 
 function EmailContent() {
   const router = useRouter()
   const params = useSearchParams()
-  const [biz, setBiz] = useState<BusinessRow | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [dirs, setDirs] = useState<Record<DirKey, boolean>>({ food: false, queue: false, digital: false, pay: false })
-  const [tab, setTab] = useState('email')
-  const [contact, setContact] = useState('')
+  const leadId = params.get('leadId')?.trim() ?? ''
+
+  const [loading, setLoading] = useState(Boolean(leadId))
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [storeName, setStoreName] = useState('')
+  const [address, setAddress] = useState('')
+  const [category, setCategory] = useState('restaurant')
+  const [analysisNotes, setAnalysisNotes] = useState('')
+  const [selectedDirection, setSelectedDirection] = useState<PitchDirectionId | null>(null)
+  const [tab, setTab] = useState<ChannelId>('email')
+  const [pitch, setPitch] = useState<PitchContent>(EMPTY_PITCH)
+  const [previewReady, setPreviewReady] = useState(false)
+  const [savedToDb, setSavedToDb] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [toastColor, setToastColor] = useState('#3B6D11')
 
   useEffect(() => {
-    const id = params.get('id')
-    if (id) {
-      supabase.from('businesses').select('*, reviews(*)').eq('id', id).single().then(({ data }) => {
-        if (data) {
-          const b = data as BusinessRow
-          setBiz(b)
-          setReviews((b.reviews ?? []) as Review[])
-        }
-      })
-    }
-    try {
-      const stored = sessionStorage.getItem('eatq_dirs')
-      if (stored) setDirs(JSON.parse(stored))
-    } catch {}
-  }, [params])
-
-  const activeDirs = (Object.keys(dirs) as DirKey[]).filter(k => dirs[k])
-
-  function getPreviewHtml(): string {
-    if (!biz) return ''
-    if (tab === 'email') return buildEmailBody(biz.name, reviews, dirs, '林○○')
-    if (tab === 'line') {
-      const lines = activeDirs.length > 0
-        ? activeDirs.map(k => '✅ ' + DIRS[k].pitch).join('<br>')
-        : '✅ 我們可以幫您提升店面營運效率'
-      return `您好，我是 EatQ 業務林○○ 👋<br><br>${lines}<br><br>📱 掃條碼就能開始，完全不增加人力<br>🎁 推廣期免費試用一年<br><br>方便撥空聊聊嗎？🙏`
-    }
-    if (tab === 'ig') {
-      const lines = activeDirs.length > 0
-        ? '我們的系統可以幫您：<br>' + activeDirs.map(k => '▸ ' + DIRS[k].pitch).join('<br>')
-        : '想跟您分享一個提升營運效率的好方法！'
-      return `👋 您好！我是 EatQ 的林○○<br><br>${lines}<br><br>目前推廣期完全免費試用一年，有興趣了解嗎？ 🙌`
-    }
-    return buildScript(biz.name, reviews, dirs, '林○○')
-  }
-
-  async function addToPipeline() {
-    if (!biz) return
-    const { data: existing } = await supabase.from('pipeline').select('id').eq('business_id', biz.id).single()
-    if (existing) {
-      alert(`⚠️ ${biz.name} 已在欲開發名單中！`)
-      router.push('/dashboard/pipeline')
+    if (!leadId) {
+      setLoadError('請從欲開發名單點選「推銷信」進入')
+      setLoading(false)
       return
     }
-    await supabase.from('pipeline').insert({
-      business_id: biz.id,
-      status: 'prospect',
-      assigned_to: '00000000-0000-0000-0000-000000000000',
-      priority: 'medium',
-      estimated_value: 0,
-      notes: '',
-      contact_name: contact,
-      contact_phone: '',
-      contact_line: '',
-      said: false,
-      sent: false,
-      other_user: '',
-      dirs,
+    setLoading(true)
+    getLeadById(leadId).then(({ lead, error }) => {
+      setLoading(false)
+      if (error) {
+        setLoadError(error)
+        return
+      }
+      if (!lead) {
+        setLoadError('找不到此筆欲開發名單')
+        return
+      }
+      setStoreName(lead.store_name)
+      setAddress(lead.address ?? '')
+      setCategory(lead.category ?? 'restaurant')
+      setAnalysisNotes(displayAiSummaryText(lead.ai_summary))
+      const dir = parsePitchDirectionFromSummary(lead.ai_summary)
+      setSelectedDirection(dir)
+
+      const existing = parseStoredPitch(lead.pitch_email)
+      if (existing) {
+        setPitch(existing)
+        setPreviewReady(true)
+        setSavedToDb(true)
+        if (!dir) setSelectedDirection(existing.directionId)
+      }
     })
-    router.push('/dashboard/pipeline')
+  }, [leadId])
+
+  function showToast(msg: string, color = '#3B6D11') {
+    setToastColor(color)
+    setToast(msg)
+    window.setTimeout(() => setToast(null), 2800)
+  }
+
+  function handleAiGenerate() {
+    if (!storeName.trim()) return
+    if (!selectedDirection) {
+      alert('請先選擇推銷方向')
+      return
+    }
+    const content = generateMockPitch(
+      storeName.trim(),
+      category,
+      selectedDirection,
+      analysisNotes || null,
+    )
+    setPitch(content)
+    setPreviewReady(true)
+    setSavedToDb(false)
+    showToast('已生成預覽（尚未儲存至資料庫）', '#C8841A')
+  }
+
+  async function handleSavePitch() {
+    if (!leadId || saving) return
+    if (!selectedDirection) {
+      alert('請先選擇推銷方向')
+      return
+    }
+    if (!previewReady) {
+      alert('請先按「AI 生成推銷信」產生預覽')
+      return
+    }
+    const payload = {
+      ...pitch,
+      directionId: selectedDirection,
+      directionLabel: PITCH_DIRECTIONS.find(d => d.id === selectedDirection)!.label,
+    }
+    const hasContent = [payload.email, payload.line, payload.ig, payload.call].some(t => t.trim())
+    if (!hasContent) {
+      alert('推銷信內容為空，請重新生成')
+      return
+    }
+
+    setSaving(true)
+    const pitchErr = await updateLead(leadId, {
+      pitch_email: serializePitch(payload),
+      ai_summary: formatAiSummaryWithDirection(selectedDirection, analysisNotes),
+    })
+    setSaving(false)
+
+    if (pitchErr) {
+      alert(`儲存失敗：${pitchErr}`)
+      console.error('[email] save pitch failed', pitchErr)
+      return
+    }
+
+    setSavedToDb(true)
+    showToast('已儲存至 Supabase')
+    router.push('/dashboard/pipeline?saved=1')
+  }
+
+  function updateChannelText(channel: ChannelId, value: string) {
+    setPitch(p => ({ ...p, [channel]: value }))
+    setSavedToDb(false)
+  }
+
+  const previewText = pitch[tab] ?? ''
+
+  if (loading) {
+    return <div style={{ color: '#888', fontSize: 12 }}>載入店家資料…</div>
+  }
+
+  if (loadError && !storeName) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#888', fontSize: 12 }}>
+        <div style={{ marginBottom: 10 }}>{loadError}</div>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/pipeline')}
+          style={{ padding: '8px 14px', background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+        >
+          回到欲開發名單
+        </button>
+      </div>
+    )
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-      {/* Left */}
-      <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 600 }}>✉️ 推銷信生成器</div>
-        <div style={{ padding: '10px 12px' }}>
-          {activeDirs.length > 0 ? (
-            <div style={{ background: '#EAF3DE', borderRadius: 6, padding: '7px 9px', marginBottom: 8 }}>
-              <div style={{ fontSize: 9, color: '#3B6D11', fontWeight: 700, marginBottom: 3 }}>✅ 已選擇推銷方向</div>
-              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                {activeDirs.map(k => (
-                  <span key={k} style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: DIRS[k].bg, color: DIRS[k].tc }}>{DIRS[k].label}</span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ background: '#FEF9EE', borderRadius: 6, padding: '7px 9px', marginBottom: 8, fontSize: 10, color: '#633806' }}>
-              💡 <span onClick={() => router.back()} style={{ color: '#C8841A', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>返回診斷頁勾選推銷方向</span>，信件內容更精準
-            </div>
-          )}
-
-          {/* Channel tabs */}
-          <div style={{ display: 'flex', gap: 3, background: '#F0EDE6', borderRadius: 6, padding: 3, marginBottom: 10 }}>
-            {CHANNEL_TABS.map(t => (
-              <div
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{ flex: 1, padding: 4, borderRadius: 4, background: tab === t.id ? 'white' : 'transparent', textAlign: 'center', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: tab === t.id ? '#2C2C2A' : '#888' }}
-              >
-                {t.label}
-              </div>
-            ))}
-          </div>
-
-          {/* Target + contact */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
-            <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>目標店家</div>
-              <input
-                value={biz?.name ?? ''}
-                readOnly
-                style={{ width: '100%', padding: '5px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box', color: '#2C2C2A', background: '#F8F5EF' }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>接洽人員</div>
-              <input
-                value={contact}
-                onChange={e => setContact(e.target.value)}
-                placeholder="老闆稱謂"
-                style={{ width: '100%', padding: '5px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box', color: '#2C2C2A', outline: 'none' }}
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={addToPipeline}
-            style={{ width: '100%', padding: 8, background: '#C8841A', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >生成並加入欲開發名單 →</button>
+    <div style={{ position: 'relative' }}>
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 56, right: 16, zIndex: 9999,
+          background: toastColor, color: 'white', padding: '10px 18px', borderRadius: 8,
+          fontSize: 12, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,.15)',
+        }}>
+          {toast}
         </div>
+      )}
+
+      <div style={{ fontSize: 9, color: '#888', marginBottom: 8, letterSpacing: .3 }}>
+        流程：選方向 → 生成預覽 → 儲存後才寫入 Supabase
+        {previewReady && !savedToDb && (
+          <span style={{ marginLeft: 8, color: '#C8841A', fontWeight: 700 }}>· 預覽中，尚未儲存</span>
+        )}
+        {savedToDb && <span style={{ marginLeft: 8, color: '#3B6D11', fontWeight: 700 }}>· 已儲存</span>}
       </div>
 
-      {/* Right: Preview */}
-      <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 11, fontWeight: 600 }}>👁 預覽</div>
-          <button
-            onClick={() => {
-              const text = biz ? getPreviewHtml().replace(/<br>/g, '\n').replace(/<[^>]+>/g, '') : ''
-              navigator.clipboard.writeText(text)
-            }}
-            style={{ padding: '3px 8px', border: '1px solid #D3D1C7', borderRadius: 5, background: 'white', fontSize: 10, cursor: 'pointer' }}
-          >複製</button>
-        </div>
-        <div style={{ padding: '10px 12px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-          {!biz ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#888', fontSize: 11 }}>← 請先從 AI 診斷頁進入</div>
-          ) : (
-            <>
-              {tab === 'email' && (
-                <div style={{ fontSize: 10, color: '#888', marginBottom: 5 }}>主旨：給{biz.name}老闆的一封信</div>
-              )}
-              <div
-                style={{ background: '#F8F5EF', border: '1px solid #E8E5DE', borderRadius: 6, padding: 10, fontSize: 11, lineHeight: 1.9, color: '#5F5E5A' }}
-                dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', fontSize: 11, fontWeight: 600 }}>
+            ✉️ 推銷信 · AI 工作流
+          </div>
+          <div style={{ padding: '10px 12px' }}>
+            <div style={{ background: '#F8F5EF', borderRadius: 6, padding: '8px 10px', marginBottom: 10, fontSize: 10, lineHeight: 1.55, color: '#5F5E5A' }}>
+              <div style={{ fontWeight: 700, color: '#2C2C2A', marginBottom: 4 }}>{storeName}</div>
+              <div>📍 {address || '—'} · {categoryLabel(category)}</div>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>店家名稱（可修改）</div>
+              <input
+                value={storeName}
+                onChange={e => setStoreName(e.target.value)}
+                style={{ width: '100%', padding: '6px 8px', border: '1px solid #D3D1C7', borderRadius: 5, fontSize: 11, boxSizing: 'border-box' }}
               />
-            </>
-          )}
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 9, color: '#888', marginBottom: 6 }}>
+                推銷方向 {selectedDirection ? '' : '（必選）'}
+              </div>
+              {!selectedDirection && (
+                <div style={{ fontSize: 10, color: '#633806', background: '#FEF9EE', padding: '6px 8px', borderRadius: 5, marginBottom: 6 }}>
+                  尚未選擇推銷方向
+                </div>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {PITCH_DIRECTIONS.map(d => {
+                  const on = selectedDirection === d.id
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDirection(d.id)
+                        setPreviewReady(false)
+                        setSavedToDb(false)
+                      }}
+                      style={{
+                        padding: '5px 9px',
+                        fontSize: 9,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        border: `1px solid ${on ? '#C8841A' : '#D3D1C7'}`,
+                        background: on ? '#FAEEDA' : 'white',
+                        color: on ? '#854F0B' : '#5F5E5A',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {d.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 3, background: '#F0EDE6', borderRadius: 6, padding: 3, marginBottom: 10 }}>
+              {CHANNEL_TABS.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  style={{
+                    flex: 1, padding: 5, borderRadius: 4, border: 'none',
+                    background: tab === t.id ? 'white' : 'transparent',
+                    fontSize: 9, fontWeight: 600, cursor: 'pointer',
+                    color: tab === t.id ? '#2C2C2A' : '#888',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAiGenerate}
+              disabled={!storeName.trim() || !selectedDirection}
+              style={{
+                width: '100%', padding: 9, marginBottom: 6,
+                background: storeName.trim() && selectedDirection ? '#C8841A' : '#D3D1C7',
+                color: 'white', border: 'none', borderRadius: 6,
+                fontSize: 12, fontWeight: 600,
+                cursor: storeName.trim() && selectedDirection ? 'pointer' : 'not-allowed',
+              }}
+            >
+              ✨ AI 生成推銷信（僅預覽）
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSavePitch}
+              disabled={saving || !previewReady}
+              style={{
+                width: '100%', padding: 9,
+                background: saving ? '#97C459' : previewReady ? '#3B6D11' : '#D3D1C7',
+                color: 'white', border: 'none', borderRadius: 6,
+                fontSize: 12, fontWeight: 600,
+                cursor: saving || !previewReady ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? '儲存中…' : '儲存推銷信 → Supabase'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/pipeline')}
+              style={{
+                width: '100%', marginTop: 6, padding: 6, background: 'transparent',
+                border: '1px solid #D3D1C7', borderRadius: 6, fontSize: 10, color: '#888', cursor: 'pointer',
+              }}
+            >
+              返回欲開發名單
+            </button>
+          </div>
+        </div>
+
+        <div style={{ background: 'white', border: '1px solid #E8E5DE', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid #F0EDE6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>
+              {tab === 'email' && '📧 正式完整'}
+              {tab === 'line' && '💬 短句口語'}
+              {tab === 'ig' && '📱 社群輕鬆'}
+              {tab === 'call' && '📞 電話話術'}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(previewText)}
+              disabled={!previewText.trim()}
+              style={{ padding: '3px 8px', border: '1px solid #D3D1C7', borderRadius: 5, background: 'white', fontSize: 10, cursor: previewText.trim() ? 'pointer' : 'not-allowed' }}
+            >
+              複製
+            </button>
+          </div>
+          <div style={{ padding: '10px 12px', flex: 1 }}>
+            {!previewReady ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#888', fontSize: 11, lineHeight: 1.7 }}>
+                1. 選擇推銷方向<br />
+                2. 按「AI 生成推銷信」<br />
+                3. 確認後按「儲存推銷信」
+              </div>
+            ) : (
+              <textarea
+                value={previewText}
+                onChange={e => updateChannelText(tab, e.target.value)}
+                rows={18}
+                style={{
+                  width: '100%', minHeight: 280, padding: 10,
+                  border: '1px solid #E8E5DE', borderRadius: 6,
+                  fontSize: 11, lineHeight: 1.75, resize: 'vertical',
+                  boxSizing: 'border-box', fontFamily: 'inherit', color: '#2C2C2A',
+                  background: '#FAF8F2',
+                }}
+              />
+            )}
+            <div style={{ fontSize: 9, color: '#aaa', marginTop: 6 }}>
+              Mock AI · `generateMockPitch()` · 之後替換 OpenAI
+            </div>
+          </div>
         </div>
       </div>
     </div>

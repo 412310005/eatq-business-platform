@@ -4,21 +4,28 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import '@/lib/mapHardNav'
+import { hardNavigateToMap, mapUrlWithRemount } from '@/lib/mapHardNav'
 
-const NAV = [
+const WORKFLOW_NAV = [
   { href: '/dashboard/map',       label: '🗺 商家地圖' },
-  { href: '/dashboard/ai',        label: '🧠 AI 痛點診斷' },
-  { href: '/dashboard/email',     label: '✉️ 推銷信生成' },
   { href: '/dashboard/pipeline',  label: '🎯 欲開發名單' },
-  { href: '/dashboard/tracker',   label: '📋 客戶追蹤' },
+  { href: '/dashboard/clients',   label: '📋 客戶追蹤' },
   { href: '/dashboard/changelog', label: '📁 異動紀錄' },
+]
+
+const TOOL_NAV = [
+  { href: '/dashboard/ai',        label: '📝 BD 手動觀察' },
+  { href: '/dashboard/email',     label: '✉️ 推銷信生成' },
 ]
 
 const TITLES: Record<string, string> = {
   '/dashboard/map':       '商家地圖搜尋',
-  '/dashboard/ai':        'AI 痛點診斷',
+  '/dashboard/ai':        'BD 手動觀察',
+  '/dashboard/ai-diagnosis': '已停用的 AI 診斷',
   '/dashboard/email':     '推銷信生成器',
   '/dashboard/pipeline':  '欲開發名單',
+  '/dashboard/clients':   '客戶追蹤',
   '/dashboard/tracker':   '客戶追蹤系統',
   '/dashboard/changelog': '異動紀錄',
 }
@@ -41,20 +48,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!q || q.length < 1) { setShowDropdown(false); return }
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(async () => {
-      const [{ data: bizData }, { data: pipeData }, { data: clientData }] = await Promise.all([
-        supabase.from('businesses').select('id, name').ilike('name', `%${q}%`).limit(5),
-        supabase.from('pipeline').select('id, businesses(name)').limit(10),
-        supabase.from('clients').select('id, businesses(name)').limit(10),
+      const [{ data: leadData }, { data: clientData }] = await Promise.all([
+        supabase.from('leads').select('id, store_name').eq('is_deleted', false).ilike('store_name', `%${q}%`).limit(8),
+        supabase.from('customers').select('id, store_name').eq('is_deleted', false).ilike('store_name', `%${q}%`).limit(8),
       ])
       const results: SearchResult[] = []
-      ;(bizData ?? []).forEach((b: any) => results.push({ name: b.name, page: 'ai', id: b.id, type: '潛在客戶' }))
-      ;(pipeData ?? []).forEach((p: any) => {
-        const name = p.businesses?.name ?? ''
-        if (name.includes(q)) results.push({ name, page: 'pipeline', id: p.id, type: '欲開發' })
+      ;(leadData ?? []).forEach((p: { id: string; store_name: string }) => {
+        results.push({ name: p.store_name, page: 'pipeline', id: p.id, type: '欲開發' })
       })
-      ;(clientData ?? []).forEach((c: any) => {
-        const name = c.businesses?.name ?? ''
-        if (name.includes(q)) results.push({ name, page: 'tracker', id: c.id, type: '正式客戶' })
+      ;(clientData ?? []).forEach((c: { id: string; store_name: string }) => {
+        results.push({ name: c.store_name, page: 'clients', id: c.id, type: '正式客戶' })
       })
       setSearchResults(results)
       setShowDropdown(true)
@@ -64,8 +67,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function jumpTo(page: string, id: string) {
     setShowDropdown(false)
     setSearchQ('')
-    if (page === 'ai') router.push(`/dashboard/ai?id=${id}`)
-    else router.push(`/dashboard/${page}`)
+    router.push(`/dashboard/${page}`)
+  }
+
+  function openMapWorkbench(e: React.MouseEvent) {
+    e.preventDefault()
+    if (pathname.startsWith('/dashboard/map')) {
+      console.log('[map-nav] sidebar map: refresh same route')
+      router.refresh()
+      router.replace(mapUrlWithRemount())
+      return
+    }
+    hardNavigateToMap('sidebar')
   }
 
   return (
@@ -77,8 +90,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.3)' }}>業務開發系統</div>
         </div>
         <nav style={{ padding: '6px 0', flex: 1 }}>
-          {NAV.map(item => {
+          {WORKFLOW_NAV.map(item => {
             const on = pathname.startsWith(item.href)
+            if (item.href === '/dashboard/map') {
+              return (
+                <a
+                  key={item.href}
+                  href={mapUrlWithRemount()}
+                  onClick={openMapWorkbench}
+                  style={{
+                    display: 'block',
+                    padding: '8px 12px',
+                    fontSize: 11,
+                    color: on ? '#FAC775' : 'rgba(255,255,255,.5)',
+                    background: on ? 'rgba(250,199,117,.1)' : 'transparent',
+                    borderLeft: `2px solid ${on ? '#FAC775' : 'transparent'}`,
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {item.label}
+                </a>
+              )
+            }
             return (
               <Link
                 key={item.href}
@@ -88,6 +122,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   padding: '8px 12px',
                   fontSize: 11,
                   color: on ? '#FAC775' : 'rgba(255,255,255,.5)',
+                  background: on ? 'rgba(250,199,117,.1)' : 'transparent',
+                  borderLeft: `2px solid ${on ? '#FAC775' : 'transparent'}`,
+                  textDecoration: 'none',
+                }}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
+          <div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '7px 12px' }} />
+          {TOOL_NAV.map(item => {
+            const on = pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: 'block',
+                  padding: '8px 12px',
+                  fontSize: 11,
+                  color: on ? '#FAC775' : 'rgba(255,255,255,.38)',
                   background: on ? 'rgba(250,199,117,.1)' : 'transparent',
                   borderLeft: `2px solid ${on ? '#FAC775' : 'transparent'}`,
                   textDecoration: 'none',
